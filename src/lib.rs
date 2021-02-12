@@ -284,6 +284,12 @@ impl Kincaid {
     }
 }
 
+impl Default for Kincaid {
+    fn default() -> Self {
+        Kincaid::new()
+    }
+}
+
 /// Allows scoring of multi-part text.
 pub struct Scorer<'a> {
     kincaid: &'a Kincaid,
