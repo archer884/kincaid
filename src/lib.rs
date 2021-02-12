@@ -343,6 +343,7 @@ impl<'a> Scorer<'a> {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct ReadingEase(f64);
 
 impl ReadingEase {
@@ -412,15 +413,22 @@ impl Display for ReadingEase {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct GradeLevel(f64);
 
 impl GradeLevel {
     pub fn description(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl Display for GradeLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0.trunc() as i32 {
-            1 => String::from("1st grade"),
-            2 => String::from("2nd grade"),
-            3 => String::from("3rd grade"),
-            n => format!("{}th grade", n),
+            1 => f.write_str("1st grade"),
+            2 => f.write_str("2nd grade"),
+            3 => f.write_str("3rd grade"),
+            grade => write!(f, "{}th grade", grade),
         }
     }
 }
