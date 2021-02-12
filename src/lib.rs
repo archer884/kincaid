@@ -316,7 +316,7 @@ impl<'a> Scorer<'a> {
     }
 
     /// Calculate grade level.
-    fn grade_level(&self) -> GradeLevel {
+    pub fn grade_level(&self) -> GradeLevel {
         let grade_level = 0.39 * (self.words as f64 / self.sentences as f64)
             + 11.8 * (self.syllables as f64 / self.words as f64)
             - 15.9;
@@ -330,7 +330,7 @@ impl<'a> Scorer<'a> {
     }
 
     /// Calculate reading ease.
-    fn reading_ease(&self) -> ReadingEase {
+    pub fn reading_ease(&self) -> ReadingEase {
         // I have chosen to clamp this value because the score isn't
         // particularly meaningful outside this range. Also, clamp
         // is kind of a new feature. /shrug
