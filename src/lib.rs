@@ -1,4 +1,4 @@
-use std::{cmp, hint::unreachable_unchecked};
+use std::{cmp, fmt::Display, hint::unreachable_unchecked};
 
 use regex::{Regex, RegexBuilder, RegexSet, RegexSetBuilder};
 
@@ -403,6 +403,12 @@ impl ReadingEase {
         unsafe {
             unreachable_unchecked();
         }
+    }
+}
+
+impl Display for ReadingEase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:.01}", self.0)
     }
 }
 
