@@ -1,4 +1,4 @@
-use std::cmp;
+use std::{cmp, hint::unreachable_unchecked};
 
 use regex::{Regex, RegexBuilder, RegexSet, RegexSetBuilder};
 
@@ -6,6 +6,7 @@ static WORD_PATTERN: &str = r"\b(\p{L}+(?:[-']\p{L}+)?)\b";
 static SENTENCE_PATTERN: &str = r"[.?!]+";
 static VOWEL_GROUP_PATTERN: &str = r"[aeiou]+";
 
+#[derive(Clone, Debug)]
 pub struct Kincaid {
     word: Regex,
     sentence: Regex,
@@ -253,12 +254,20 @@ impl Kincaid {
             .sum()
     }
 
-    pub fn reading_ease_score(&self, text: &str) -> f64 {
-        let words = self.word_count(text) as f64;
-        let syllables = self.syllable_count(text) as f64;
-        let sentences = self.sentence_count(text) as f64;
+    pub fn scorer(&self) -> Scorer {
+        Scorer::new(self)
+    }
 
-        206.835 - 1.015 * words / sentences - 84.6 * syllables / words
+    pub fn reading_ease(&self, text: &str) -> ReadingEase {
+        let mut score = self.scorer();
+        score.add(text);
+        score.reading_ease()
+    }
+
+    pub fn grade_level(&self, text: &str) -> GradeLevel {
+        let mut score = self.scorer();
+        score.add(text);
+        score.grade_level()
     }
 
     fn syllables_in_word(&self, text: &str) -> usize {
@@ -271,6 +280,135 @@ impl Kincaid {
             1
         } else {
             count + add - sub
+        }
+    }
+}
+
+/// Allows scoring of multi-part text.
+pub struct Scorer<'a> {
+    kincaid: &'a Kincaid,
+    words: usize,
+    syllables: usize,
+    sentences: usize,
+}
+
+impl<'a> Scorer<'a> {
+    pub fn new(kincaid: &'a Kincaid) -> Self {
+        Self {
+            kincaid,
+            words: 0,
+            syllables: 0,
+            sentences: 0,
+        }
+    }
+
+    /// Add a text.
+    pub fn add(&mut self, text: &str) {
+        self.words += self.kincaid.word_count(text);
+        self.syllables += self.kincaid.syllable_count(text);
+        self.sentences += self.kincaid.sentence_count(text);
+    }
+
+    /// Calculate grade level.
+    fn grade_level(&self) -> GradeLevel {
+        let grade_level = 0.39 * (self.words as f64 / self.sentences as f64)
+            + 11.8 * (self.syllables as f64 / self.words as f64)
+            - 15.9;
+
+        // Ord is not implemented for f64, so cmp::max does not work.
+        if grade_level < 1.0 {
+            GradeLevel(1.0)
+        } else {
+            GradeLevel(grade_level)
+        }
+    }
+
+    /// Calculate reading ease.
+    fn reading_ease(&self) -> ReadingEase {
+        // I have chosen to clamp this value because the score isn't
+        // particularly meaningful outside this range. Also, clamp
+        // is kind of a new feature. /shrug
+        ReadingEase(
+            (206.835
+                - 1.015 * self.words as f64 / self.sentences as f64
+                - 84.6 * self.syllables as f64 / self.words as f64)
+                .clamp(0.0, 100.0),
+        )
+    }
+}
+
+pub struct ReadingEase(f64);
+
+impl ReadingEase {
+    /// Provide descriptors for this reading level.
+    ///
+    /// The first descriptor is short; the second is more detailed.
+    pub fn description(self) -> (&'static str, &'static str) {
+        if (0.0..10.0).contains(&self.0) {
+            return (
+                "Professional",
+                "Extremely difficult to read. Best understood by university graduates.",
+            );
+        }
+
+        if (10.0..30.0).contains(&self.0) {
+            return (
+                "College graduate",
+                "Very difficult to read. Best understood by university graduates.",
+            );
+        }
+
+        if (30.0..50.0).contains(&self.0) {
+            return ("College", "Difficult to read.");
+        }
+
+        if (50.0..60.0).contains(&self.0) {
+            return ("10th to 12th grade", "Fairly difficult to read.");
+        }
+
+        if (60.0..70.0).contains(&self.0) {
+            return (
+                "8th & 9th grade",
+                "Plain English. Easily understood by 13- to 15-year-old students.",
+            );
+        }
+
+        if (70.0..80.0).contains(&self.0) {
+            return ("7th grade", "Fairly easy to read.");
+        }
+
+        if (80.0..90.0).contains(&self.0) {
+            return (
+                "6th grade",
+                "Easy to read. Conversational English for consumers.",
+            );
+        }
+
+        if (90.00..=100.00).contains(&self.0) {
+            return (
+                "5th grade",
+                "Very easy to read. Easily understood by an average 11-year-old student.",
+            );
+        }
+
+        // Based on my in-depth (mis)understanding of floating point values,
+        // I conclude that this point can only be reached on Halloween, and
+        // only during a thunderstorm.
+        unsafe {
+            unreachable_unchecked();
+        }
+    }
+}
+
+pub struct GradeLevel(f64);
+
+impl GradeLevel {
+    pub fn description(&self) -> String {
+        match self.0.trunc() as i32 {
+            1 => String::from("1st grade"),
+            2 => String::from("2nd grade"),
+            3 => String::from("3rd grade"),
+            n => format!("{}th grade", n),
         }
     }
 }
